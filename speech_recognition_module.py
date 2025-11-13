@@ -12,17 +12,19 @@ class SpeechRecognizer:
         self.microphone = sr.Microphone()
 
         # Optimize recognizer settings for better accuracy and speed
-        self.recognizer.energy_threshold = 300  # Lower = more sensitive to speech
+        self.recognizer.energy_threshold = 200  # Lower = more sensitive to speech (reduced for better detection)
         self.recognizer.dynamic_energy_threshold = True  # Auto-adjust to environment
-        self.recognizer.pause_threshold = 0.8  # Wait longer for complete sentences (reduced from 0.8)
-        self.recognizer.phrase_threshold = 0.3  # Start listening sooner
-        self.recognizer.non_speaking_duration = 0.6  # Detect end of speech
+        self.recognizer.pause_threshold = 1.0  # Wait longer for complete sentences
+        self.recognizer.phrase_threshold = 0.2  # Start listening sooner
+        self.recognizer.non_speaking_duration = 0.8  # Detect end of speech (wait longer)
 
-        # Adjust for ambient noise - shorter calibration for faster startup
+        # Adjust for ambient noise - calibration
+        print("🎙️  Calibrating microphone for ambient noise...")
         with self.microphone as source:
-            self.recognizer.adjust_for_ambient_noise(source, duration=0.5)
+            self.recognizer.adjust_for_ambient_noise(source, duration=1.5)
+        print("✓ Microphone calibrated!")
 
-    def listen(self, timeout=10, phrase_time_limit=10):
+    def listen(self, timeout=15, phrase_time_limit=15):
         """
         Listen to user's speech and convert to text
 

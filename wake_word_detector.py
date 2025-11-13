@@ -16,16 +16,17 @@ class WakeWordDetector:
         self.callback = None
 
         # Optimize for better wake word detection
-        self.recognizer.energy_threshold = 300  # More sensitive
+        self.recognizer.energy_threshold = 150  # Lower = more sensitive (improved from 300)
         self.recognizer.dynamic_energy_threshold = True
-        self.recognizer.pause_threshold = 0.6  # Faster detection
-        self.recognizer.phrase_threshold = 0.3
+        self.recognizer.pause_threshold = 0.8  # Wait for complete phrase
+        self.recognizer.phrase_threshold = 0.2  # Start listening sooner
+        self.recognizer.non_speaking_duration = 0.5  # Quick detection
 
-        # Adjust for ambient noise - faster calibration
-        print("Calibrating for ambient noise... Please wait.")
+        # Adjust for ambient noise - better calibration
+        print("🎙️  Calibrating wake word detector for ambient noise...")
         with self.microphone as source:
-            self.recognizer.adjust_for_ambient_noise(source, duration=1)
-        print("Calibration complete!")
+            self.recognizer.adjust_for_ambient_noise(source, duration=1.5)
+        print("✓ Wake word detector calibrated and ready!")
 
     def listen_for_wake_word(self, callback):
         """
@@ -43,31 +44,34 @@ class WakeWordDetector:
             try:
                 with self.microphone as source:
                     # Listen with a shorter timeout for better responsiveness
-                    audio = self.recognizer.listen(source, timeout=5, phrase_time_limit=5)
+                    print("👂 Listening for wake word...", end="\r")
+                    audio = self.recognizer.listen(source, timeout=None, phrase_time_limit=5)
 
                 try:
                     # Use Google's speech recognition
                     text = self.recognizer.recognize_google(audio).lower()
-                    print(f"[Heard: {text}]")
+                    print(f"🔊 [Heard: '{text}']                    ")
 
                     # Check if any wake word is in the text
                     if any(wake_word in text for wake_word in self.wake_words):
-                        print("✓ Wake word detected!")
+                        print("✅ Wake word detected!")
                         if self.callback:
                             self.callback()
+                    else:
+                        print(f"   (Not a wake word, waiting...)")
 
                 except sr.UnknownValueError:
                     # Speech was unintelligible
-                    pass
+                    print("❓ Could not understand (background noise?)   ")
                 except sr.RequestError as e:
-                    print(f"Could not request results from speech recognition service; {e}")
+                    print(f"❌ Could not request results from speech recognition service; {e}")
                     time.sleep(1)
 
             except sr.WaitTimeoutError:
                 # No speech detected, continue listening
                 pass
             except Exception as e:
-                print(f"Error in wake word detection: {e}")
+                print(f"⚠️  Error in wake word detection: {e}")
                 time.sleep(1)
 
     def start(self, callback):

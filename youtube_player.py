@@ -91,6 +91,11 @@ class YouTubePlayer:
         Returns:
             bool: True if playback started successfully
         """
+        # Stop any currently playing music first
+        if self.current_process:
+            print("🔄 Stopping previous song...")
+            self.stop()
+
         try:
             # Try mpv first (best option)
             print("🎮 Trying mpv player...")
@@ -100,7 +105,7 @@ class YouTubePlayer:
                 stderr=subprocess.DEVNULL
             )
             self.is_playing = True
-            print(f"✅ Playing with mpv: {title}")
+            print(f"✅ Playing with mpv (PID: {self.current_process.pid}): {title}")
             return True
 
         except FileNotFoundError:
@@ -113,7 +118,7 @@ class YouTubePlayer:
                     stderr=subprocess.DEVNULL
                 )
                 self.is_playing = True
-                print(f"✅ Playing with ffplay: {title}")
+                print(f"✅ Playing with ffplay (PID: {self.current_process.pid}): {title}")
                 return True
 
             except FileNotFoundError:
@@ -126,7 +131,7 @@ class YouTubePlayer:
                         stderr=subprocess.DEVNULL
                     )
                     self.is_playing = True
-                    print(f"✅ Playing with vlc: {title}")
+                    print(f"✅ Playing with vlc (PID: {self.current_process.pid}): {title}")
                     return True
 
                 except FileNotFoundError:
@@ -139,22 +144,46 @@ class YouTubePlayer:
 
     def stop(self):
         """Stop currently playing music"""
+        stopped = False
+
+        # First, try to stop the process we know about
         if self.current_process:
             try:
+                print("🛑 Terminating music player...")
                 self.current_process.terminate()
-                self.current_process.wait(timeout=2)
-                self.is_playing = False
-                print("⏹️  Music stopped")
-                return True, "Music stopped"
-            except Exception as e:
                 try:
-                    self.current_process.kill()
-                    self.is_playing = False
+                    self.current_process.wait(timeout=2)
+                    stopped = True
+                    print("✓ Music player terminated")
                 except:
-                    pass
-                return False, "Error stopping music"
+                    # If terminate doesn't work, force kill
+                    print("🔨 Force killing music player...")
+                    self.current_process.kill()
+                    self.current_process.wait(timeout=1)
+                    stopped = True
+                    print("✓ Music player killed")
+            except Exception as e:
+                print(f"⚠️  Error stopping process: {e}")
+
+        # Also try pkill as backup (without sudo, only kills user processes)
+        try:
+            subprocess.run(['pkill', 'mpv'], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+            subprocess.run(['pkill', 'ffplay'], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+            subprocess.run(['pkill', 'vlc'], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+            subprocess.run(['pkill', 'cvlc'], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+            stopped = True
+        except:
+            pass
+
+        self.current_process = None
+        self.is_playing = False
+
+        if stopped or not self.is_playing_music():
+            print("⏹️  Music stopped")
+            return True, "Music stopped"
         else:
-            return False, "No music is playing"
+            print("⚠️  Music may still be playing")
+            return False, "Could not stop music"
 
     def pause(self):
         """Pause/resume playback (not supported by all players)"""

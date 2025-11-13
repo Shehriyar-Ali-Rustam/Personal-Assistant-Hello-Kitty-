@@ -98,8 +98,12 @@ class HelloKittyAssistant:
 
     def _is_exit_command(self, text):
         """Check if user wants to exit"""
-        exit_phrases = ["goodbye", "bye", "exit", "quit", "stop", "shutdown"]
-        return any(phrase in text.lower() for phrase in exit_phrases)
+        text_lower = text.lower()
+        # Don't exit if they're trying to stop music
+        if "stop music" in text_lower or "stop the music" in text_lower:
+            return False
+        exit_phrases = ["goodbye", "bye", "exit", "quit", "shutdown"]
+        return any(phrase in text_lower for phrase in exit_phrases)
 
     def _handle_special_commands(self, text):
         """Handle special assistant commands"""
@@ -107,38 +111,35 @@ class HelloKittyAssistant:
 
         # Music commands - improved parsing
         if "play" in text_lower:
-            # Better song extraction
-            song_query = text_lower
+            # Better song extraction - preserve original case for song names
+            song_query = text  # Use original text to preserve capitalization
 
-            # Remove play command and common words
-            song_query = song_query.replace("play", "").strip()
-            song_query = song_query.replace("the song", "").strip()
-            song_query = song_query.replace("song", "").strip()
-            song_query = song_query.replace("music", "").strip()
-            song_query = song_query.replace("on youtube", "").strip()
-            song_query = song_query.replace("youtube", "").strip()
-            song_query = song_query.replace("for me", "").strip()
-            song_query = song_query.replace("please", "").strip()
+            # Log what was heard
+            print(f"📝 Original input: '{text}'")
 
-            # Remove extra articles
-            if song_query.startswith("the "):
-                song_query = song_query[4:]
-            if song_query.startswith("a "):
-                song_query = song_query[2:]
+            # Remove play command and common filler words (case insensitive)
+            import re
+            # Remove "play" and common phrases
+            song_query = re.sub(r'\bplay\b', '', song_query, flags=re.IGNORECASE).strip()
+            song_query = re.sub(r'\bthe song\b', '', song_query, flags=re.IGNORECASE).strip()
+            song_query = re.sub(r'\bon youtube\b', '', song_query, flags=re.IGNORECASE).strip()
+            song_query = re.sub(r'\bfor me\b', '', song_query, flags=re.IGNORECASE).strip()
+            song_query = re.sub(r'\bplease\b', '', song_query, flags=re.IGNORECASE).strip()
 
-            song_query = song_query.strip()
+            # Clean up extra spaces
+            song_query = ' '.join(song_query.split())
 
-            if song_query and len(song_query) > 2:
+            if song_query and len(song_query) > 1:
                 print(f"🎵 Extracted song query: '{song_query}'")
                 self.tts.speak(f"Searching for {song_query}")
 
-                # Run YouTube search in background to avoid blocking
+                # Run YouTube search
                 success, message = self.youtube_player.search_and_play(song_query)
 
                 if success:
                     self.tts.speak("Playing now! Say stop music to stop.")
                 else:
-                    self.tts.speak(f"Sorry, couldn't find {song_query}. Try again?")
+                    self.tts.speak(f"Sorry, I couldn't find {song_query}. Try saying it again?")
                 return True
             else:
                 self.tts.speak("What song would you like to hear?")

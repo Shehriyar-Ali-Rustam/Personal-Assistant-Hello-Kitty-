@@ -130,10 +130,37 @@ Rules for responses:
                 'max_output_tokens': 100,  # Limit for faster responses
             }
 
+            # Configure safety settings to be less restrictive
+            safety_settings = [
+                {
+                    "category": "HARM_CATEGORY_HARASSMENT",
+                    "threshold": "BLOCK_NONE"
+                },
+                {
+                    "category": "HARM_CATEGORY_HATE_SPEECH",
+                    "threshold": "BLOCK_NONE"
+                },
+                {
+                    "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                    "threshold": "BLOCK_NONE"
+                },
+                {
+                    "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                    "threshold": "BLOCK_NONE"
+                }
+            ]
+
             response = self.chat.send_message(
                 full_input,
-                generation_config=generation_config
+                generation_config=generation_config,
+                safety_settings=safety_settings
             )
+
+            # Check if response was blocked
+            if response.candidates[0].finish_reason == 2:
+                print("⚠️  Response blocked by safety filters, using fallback")
+                return self._get_fallback_response(user_input)
+
             assistant_response = response.text.strip()
 
             # Save to conversation history
