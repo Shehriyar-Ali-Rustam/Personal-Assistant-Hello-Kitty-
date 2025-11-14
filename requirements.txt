@@ -7,3 +7,5 @@ gTTS>=2.5.0
 pygame>=2.6.0
 yt-dlp>=2025.0.0
 pydub>=0.25.0
+requests>=2.31.0
+pytz>=2024.1

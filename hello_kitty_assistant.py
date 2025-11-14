@@ -10,6 +10,9 @@ from speech_recognition_module import SpeechRecognizer
 from ai_brain import AIBrain
 from text_to_speech import TextToSpeech
 from youtube_player import YouTubePlayer
+from weather_time_module import WeatherTimeModule
+from alarm_module import AlarmModule
+from urdu_support import UrduSupport
 
 
 class HelloKittyAssistant:
@@ -54,10 +57,26 @@ class HelloKittyAssistant:
         # YouTube music player
         self.youtube_player = YouTubePlayer()
 
+        # Weather and Time module
+        city = os.getenv("CITY", "Karachi")
+        timezone = os.getenv("TIMEZONE", "Asia/Karachi")
+        self.weather_time = WeatherTimeModule(city=city, timezone=timezone)
+
+        # Alarm module with callback
+        self.alarm_module = AlarmModule(alarm_callback=self.on_alarm_triggered)
+
+        # Urdu language support
+        self.urdu_support = UrduSupport()
+
         self.is_active = False
         self.running = True
 
         print("\n✅ All components initialized successfully!")
+
+    def on_alarm_triggered(self, label):
+        """Called when an alarm goes off"""
+        print(f"🔔 Alarm triggered: {label}")
+        self.tts.speak(f"Alarm! {label}")
 
     def on_wake_word_detected(self):
         """Called when wake word is detected"""
@@ -73,6 +92,10 @@ class HelloKittyAssistant:
         user_input = self.speech_recognizer.listen(timeout=10, phrase_time_limit=20)
 
         if user_input:
+            # Check for Urdu and translate if needed
+            if self.urdu_support.detect_urdu(user_input):
+                print(f"🇵🇰 Urdu detected: '{user_input}'")
+                user_input = self.urdu_support.translate_to_english(user_input)
             # Check for exit commands
             if self._is_exit_command(user_input):
                 self.tts.speak("Goodbye! Have a wonderful day!")
@@ -170,6 +193,63 @@ class HelloKittyAssistant:
                 self.tts.speak("Music stopped.")
             else:
                 self.tts.speak("No music is playing.")
+            return True
+
+        # Weather commands
+        if "weather" in text_lower or "mausam" in text_lower:
+            weather_info = self.weather_time.get_weather()
+            self.tts.speak(weather_info)
+            return True
+
+        # Time commands
+        if ("time" in text_lower and "what" in text_lower) or "waqt kya hua" in text_lower:
+            current_time = self.weather_time.get_current_time()
+            self.tts.speak(f"The time is {current_time}")
+            return True
+
+        # Date commands
+        if ("date" in text_lower and ("what" in text_lower or "today" in text_lower)) or "tareekh" in text_lower:
+            current_date = self.weather_time.get_current_date()
+            self.tts.speak(f"Today is {current_date}")
+            return True
+
+        # Day commands
+        if "what day" in text_lower or "which day" in text_lower or "aaj kya din" in text_lower:
+            day = self.weather_time.get_day_of_week()
+            self.tts.speak(f"Today is {day}")
+            return True
+
+        # Alarm commands
+        if "set alarm" in text_lower or "alarm lagao" in text_lower or ("set" in text_lower and "alarm" in text_lower):
+            # Extract time from command (simple parsing)
+            import re
+            time_pattern = r'(\d{1,2}):(\d{2})|(\d{1,2})\s*(am|pm|a\.m\.|p\.m\.)'
+            time_match = re.search(time_pattern, text_lower)
+
+            if time_match:
+                if time_match.group(1):  # HH:MM format
+                    alarm_time = f"{time_match.group(1)}:{time_match.group(2)}"
+                else:  # Hour with AM/PM
+                    hour = time_match.group(3)
+                    period = time_match.group(4)
+                    alarm_time = f"{hour}:00"
+                    if 'pm' in period or 'p.m' in period:
+                        alarm_time = f"{int(hour) + 12}:00"
+
+                message = self.alarm_module.add_alarm(alarm_time, "Alarm")
+                self.tts.speak(message)
+            else:
+                self.tts.speak("What time should I set the alarm for?")
+            return True
+
+        if "cancel alarm" in text_lower or "delete alarm" in text_lower:
+            message = self.alarm_module.cancel_all_alarms()
+            self.tts.speak(message)
+            return True
+
+        if ("show" in text_lower or "list" in text_lower or "my" in text_lower) and "alarm" in text_lower:
+            message = self.alarm_module.get_alarms()
+            self.tts.speak(message)
             return True
 
         # Reset conversation
