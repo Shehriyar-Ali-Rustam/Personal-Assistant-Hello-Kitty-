@@ -196,17 +196,26 @@ class HelloKittyAssistant:
 
         return False
 
+    def emergency_stop_music(self):
+        """Emergency stop music without wake word (called from wake word detector)"""
+        if self.youtube_player.is_playing_music():
+            print("🚨 Emergency music stop triggered!")
+            success, message = self.youtube_player.stop()
+            return success
+        return False
+
     def run(self):
         """Start the assistant"""
         try:
             print("\n" + "=" * 60)
             print(f"👂 {self.assistant_name} is now listening!")
             print(f"🎤 Say '{self.wake_word}' to activate")
+            print(f"🎵 Say 'stop music' or just 'stop' to stop music (no wake word needed!)")
             print("🛑 Say 'goodbye' or 'exit' to stop the assistant")
             print("=" * 60 + "\n")
 
-            # Start wake word detection
-            self.wake_detector.start(self.on_wake_word_detected)
+            # Start wake word detection with emergency stop callback
+            self.wake_detector.start(self.on_wake_word_detected, self.emergency_stop_music)
 
             # Keep the main thread alive
             while self.running:

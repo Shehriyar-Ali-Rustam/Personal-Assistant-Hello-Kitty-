@@ -14,6 +14,7 @@ class WakeWordDetector:
         self.microphone = sr.Microphone()
         self.is_listening = False
         self.callback = None
+        self.stop_music_callback = None  # Special callback for emergency stop
 
         # Optimize for better wake word detection
         self.recognizer.energy_threshold = 150  # Lower = more sensitive (improved from 300)
@@ -52,6 +53,13 @@ class WakeWordDetector:
                     text = self.recognizer.recognize_google(audio).lower()
                     print(f"🔊 [Heard: '{text}']                    ")
 
+                    # EMERGENCY: Check for stop music command (works without wake word)
+                    if self.stop_music_callback and ("stop music" in text or "stop the music" in text or "stop" in text):
+                        print("🎵 Emergency stop music detected (no wake word needed)!")
+                        if self.stop_music_callback():
+                            print("✓ Music stopped successfully")
+                            continue
+
                     # Check if any wake word is in the text
                     if any(wake_word in text for wake_word in self.wake_words):
                         print("✅ Wake word detected!")
@@ -74,8 +82,14 @@ class WakeWordDetector:
                 print(f"⚠️  Error in wake word detection: {e}")
                 time.sleep(1)
 
-    def start(self, callback):
-        """Start listening in a separate thread"""
+    def start(self, callback, stop_music_callback=None):
+        """
+        Start listening in a separate thread
+        Args:
+            callback: Function to call when wake word is detected
+            stop_music_callback: Optional function to call for emergency music stop (no wake word needed)
+        """
+        self.stop_music_callback = stop_music_callback
         listener_thread = threading.Thread(target=self.listen_for_wake_word, args=(callback,))
         listener_thread.daemon = True
         listener_thread.start()
