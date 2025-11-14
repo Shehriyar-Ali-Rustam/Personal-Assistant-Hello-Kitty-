@@ -8,6 +8,7 @@ import time
 import json
 import os
 from pathlib import Path
+from alarm_sound import AlarmSound
 
 
 class AlarmModule:
@@ -22,6 +23,9 @@ class AlarmModule:
         self.alarm_callback = alarm_callback
         self.alarm_file = Path("alarms.json")
         self.running = True
+
+        # Initialize alarm sound
+        self.alarm_sound = AlarmSound()
 
         # Load existing alarms
         self.load_alarms()
@@ -117,6 +121,16 @@ class AlarmModule:
                     if 0 <= time_diff <= 30:
                         # Trigger alarm
                         print(f"\n🔔 ALARM! {alarm['label']}")
+
+                        # Play alarm ringtone in a separate thread (so it doesn't block)
+                        ringtone_thread = threading.Thread(
+                            target=self.alarm_sound.play_alarm_ringtone,
+                            args=(10,),  # Play for 10 seconds
+                            daemon=True
+                        )
+                        ringtone_thread.start()
+
+                        # Call the callback (for voice notification)
                         if self.alarm_callback:
                             self.alarm_callback(alarm['label'])
 
