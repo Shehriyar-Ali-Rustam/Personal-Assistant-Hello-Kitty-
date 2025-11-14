@@ -102,6 +102,9 @@ class HelloKittyAssistant:
         # Don't exit if they're trying to stop music
         if "stop music" in text_lower or "stop the music" in text_lower:
             return False
+        # Don't exit if music is playing and they say "stop" (they mean stop music)
+        if self.youtube_player.is_playing_music() and "stop" in text_lower:
+            return False
         exit_phrases = ["goodbye", "bye", "exit", "quit", "shutdown"]
         return any(phrase in text_lower for phrase in exit_phrases)
 
@@ -145,6 +148,22 @@ class HelloKittyAssistant:
                 self.tts.speak("What song would you like to hear?")
                 return True
 
+        # Check for stop/pause music commands
+        # If music is playing, just "stop" is enough (easier to hear over music)
+        if self.youtube_player.is_playing_music():
+            print(f"🎵 Music is currently playing. Checking for stop command in: '{text}'")
+            if "stop" in text_lower or "pause" in text_lower:
+                print("✅ Stop command detected! Stopping music...")
+                success, message = self.youtube_player.stop()
+                if success:
+                    self.tts.speak("Music stopped.")
+                else:
+                    self.tts.speak("Stopping music.")
+                return True
+            else:
+                print(f"   No stop command found in '{text}'")
+
+        # If no music playing, require full phrase
         if "stop music" in text_lower or "stop the music" in text_lower or "pause music" in text_lower:
             success, message = self.youtube_player.stop()
             if success:
