@@ -5,14 +5,25 @@ Generates and plays alarm ringtone
 import pygame
 import numpy as np
 import time
+import os
 
 
 class AlarmSound:
     def __init__(self):
         """Initialize alarm sound player"""
-        pygame.mixer.init(frequency=22050, size=-16, channels=2, buffer=512)
-        self.is_playing = False
-        print("✓ Alarm sound module initialized")
+        try:
+            # Initialize pygame mixer with safe settings
+            os.environ['SDL_AUDIODRIVER'] = 'pulseaudio,alsa,dsp'
+            pygame.mixer.quit()  # Quit any existing mixer
+            pygame.mixer.init(frequency=22050, size=-16, channels=2, buffer=2048)
+            self.is_playing = False
+            self.enabled = True
+            print("✓ Alarm sound module initialized")
+        except Exception as e:
+            print(f"⚠️  Alarm sound initialization failed: {e}")
+            print("   Alarms will work but without ringtone")
+            self.enabled = False
+            self.is_playing = False
 
     def generate_beep_pattern(self):
         """
@@ -53,6 +64,10 @@ class AlarmSound:
         Args:
             duration_seconds: How long to play the alarm (default 10 seconds)
         """
+        if not self.enabled:
+            print("⚠️  Alarm ringtone disabled (audio system unavailable)")
+            return
+
         print("🔔 Playing alarm ringtone...")
         self.is_playing = True
 
@@ -66,27 +81,34 @@ class AlarmSound:
             while (time.time() - start_time) < duration_seconds and self.is_playing:
                 # Play two beeps
                 beep.play()
-                time.sleep(0.4)
+                pygame.time.wait(400)  # Wait for beep to play
+
                 beep.play()
-                time.sleep(0.4)
+                pygame.time.wait(400)
 
                 # Short pause
-                time.sleep(0.3)
+                pygame.time.wait(300)
 
                 # Play two more beeps
                 beep.play()
-                time.sleep(0.4)
+                pygame.time.wait(400)
+
                 beep.play()
-                time.sleep(0.4)
+                pygame.time.wait(400)
 
                 # Longer pause before repeating
-                time.sleep(0.8)
+                pygame.time.wait(800)
 
         except Exception as e:
             print(f"⚠️  Error playing alarm sound: {e}")
+            import traceback
+            traceback.print_exc()
         finally:
             self.is_playing = False
-            pygame.mixer.stop()
+            try:
+                pygame.mixer.stop()
+            except:
+                pass
             print("⏹️  Alarm ringtone stopped")
 
     def stop(self):

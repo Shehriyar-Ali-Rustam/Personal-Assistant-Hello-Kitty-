@@ -25,7 +25,11 @@ class AlarmModule:
         self.running = True
 
         # Initialize alarm sound
-        self.alarm_sound = AlarmSound()
+        try:
+            self.alarm_sound = AlarmSound()
+        except Exception as e:
+            print(f"⚠️  Alarm sound initialization error: {e}")
+            self.alarm_sound = None
 
         # Load existing alarms
         self.load_alarms()
@@ -123,12 +127,16 @@ class AlarmModule:
                         print(f"\n🔔 ALARM! {alarm['label']}")
 
                         # Play alarm ringtone in a separate thread (so it doesn't block)
-                        ringtone_thread = threading.Thread(
-                            target=self.alarm_sound.play_alarm_ringtone,
-                            args=(10,),  # Play for 10 seconds
-                            daemon=True
-                        )
-                        ringtone_thread.start()
+                        if self.alarm_sound:
+                            try:
+                                ringtone_thread = threading.Thread(
+                                    target=self.alarm_sound.play_alarm_ringtone,
+                                    args=(10,),  # Play for 10 seconds
+                                    daemon=True
+                                )
+                                ringtone_thread.start()
+                            except Exception as e:
+                                print(f"⚠️  Ringtone playback error: {e}")
 
                         # Call the callback (for voice notification)
                         if self.alarm_callback:
