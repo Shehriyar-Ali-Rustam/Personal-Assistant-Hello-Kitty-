@@ -4,10 +4,10 @@
 
 ### 1. Start the Assistant
 ```bash
-bash start_assistant.sh
+bash run.sh
 ```
 
-Or:
+Or manually:
 ```bash
 source venv/bin/activate
 python hello_kitty_assistant.py
@@ -45,15 +45,45 @@ Assistant: "Of course! Here's a cute one for you! ..."
 - **"Normal speed"** - Reset to default speed
 - **"Reset conversation"** - Clear conversation history
 
-### Music Commands (NEW! 🎵):
+### Music Commands:
 - **"Play [song name]"** - Play a song from YouTube
-- **"Stop music"** - Stop currently playing music
+- **"Stop music"** - Stop currently playing music (works even without wake word!)
 - **"Pause music"** - Pause the music
 
 **Examples:**
 - "Play shape of you"
 - "Play lofi music"
 - "Play Taylor Swift"
+
+### Weather & Time Commands:
+- **"What's the weather?"** - Get current weather in Karachi
+- **"Weather in [city]"** - Get weather for any city
+- **"What time is it?"** - Get current time
+- **"What's the date?"** - Get current date
+
+**Examples:**
+- "What's the weather like?"
+- "Weather in Lahore"
+- "Tell me the time"
+
+### Alarm Commands:
+- **"Set alarm for [time]"** - Set an alarm (plays ringtone!)
+- **"Set alarm [HH:MM]"** - Set alarm with specific time
+- **"Show alarms"** / **"List alarms"** - View all alarms
+- **"Delete alarm [number]"** - Remove an alarm
+
+**Examples:**
+- "Set alarm for 7:30 AM"
+- "Set alarm 14:00"
+- "Show my alarms"
+- "Delete alarm 1"
+
+### Multi-Language Support:
+- **Urdu/Hindi** - Speak in Urdu (Roman or Urdu script) and it will be translated!
+
+**Examples:**
+- "Mausam kaisa hai?" (How's the weather?)
+- "Waqt kya hua?" (What time is it?)
 
 ## Tips
 
@@ -80,17 +110,19 @@ Assistant: "Of course! Here's a cute one for you! ..."
 ## Configuration
 
 Edit `.env` file to customize:
-- `WAKE_WORD` - Change the activation phrase
+- `WAKE_WORD` - Change the activation phrase (default: "hello kitty")
 - `VOICE_RATE` - Adjust speech speed (default: 150)
 - `VOICE_VOLUME` - Adjust volume (0.0 to 1.0)
-- `AI_PROVIDER` - Switch between 'gemini' or 'openai'
+- `AI_PROVIDER` - Switch between 'openai' or 'gemini'
+- `CITY` - Default city for weather (default: Karachi)
+- `TIMEZONE` - Your timezone (default: Asia/Karachi)
 
 ## Current Setup
 
-- **AI Provider**: Gemini (Google)
-- **Model**: gemini-2.5-flash
+- **AI Provider**: OpenAI (GPT-3.5-turbo)
 - **Wake Word**: "hello kitty"
 - **Voice Rate**: 150 words per minute
+- **Features**: Music Player, Weather & Time, Alarms with Ringtone, Urdu Support
 
 ---
 
