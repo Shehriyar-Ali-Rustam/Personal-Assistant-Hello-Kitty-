@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hello Kitty Chat</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Wake Word Mode Overlay - Like Terminal -->
+    <div class="wake-mode-overlay" id="wakeModeOverlay">
+        <div class="wake-mode-container">
+            <button class="wake-mode-close" onclick="exitWakeWordMode()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+
+            <div class="wake-mode-avatar" id="wakeModeAvatar">
+                <div class="avatar-ring"></div>
+                <div class="avatar-ring ring-2"></div>
+                <div class="avatar-ring ring-3"></div>
+                <span class="avatar-emoji">🎀</span>
+            </div>
+
+            <h2 class="wake-mode-title">Hello Kitty</h2>
+            <p class="wake-mode-status" id="wakeModeStatus">Say "Hello Kitty" to start...</p>
+
+            <div class="wake-mode-transcript" id="wakeModeTranscript"></div>
+
+            <div class="wake-mode-indicator" id="wakeModeIndicator">
+                <div class="sound-wave">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+                <p>Listening for wake word...</p>
+            </div>
+
+            <p class="wake-mode-hint">Say "Hello Kitty" to activate, then ask your question</p>
+        </div>
+    </div>
+
+    <!-- Voice Mode Overlay -->
+    <div class="voice-mode-overlay" id="voiceModeOverlay">
+        <div class="voice-mode-container">
+            <button class="voice-mode-close" onclick="exitVoiceMode()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+
+            <div class="voice-mode-avatar" id="voiceModeAvatar">
+                <div class="avatar-ring"></div>
+                <div class="avatar-ring ring-2"></div>
+                <div class="avatar-ring ring-3"></div>
+                <span class="avatar-emoji">🎀</span>
+            </div>
+
+            <h2 class="voice-mode-title">Hello Kitty</h2>
+            <p class="voice-mode-status" id="voiceModeStatus">Click to start talking...</p>
+
+            <div class="voice-mode-transcript" id="voiceModeTranscript"></div>
+
+            <div class="voice-mode-controls">
+                <button class="voice-mode-btn" id="voiceModeBtn" onclick="toggleVoiceModeListening()">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                        <line x1="12" y1="19" x2="12" y2="23"></line>
+                        <line x1="8" y1="23" x2="16" y2="23"></line>
+                    </svg>
+                </button>
+            </div>
+
+            <p class="voice-mode-hint">Say "goodbye" or "exit" to end the conversation</p>
+        </div>
+    </div>
+
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <button class="new-chat-btn" onclick="resetConversation()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    New Chat
+                </button>
+            </div>
+            <div class="sidebar-content">
+                <div class="chat-history" id="chatHistory">
+                    <!-- Chat history items will be added here -->
+                </div>
+            </div>
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="avatar">
+                        <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=user" alt="User">
+                    </div>
+                    <span>User</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="chat-main">
+            <!-- Chat Header -->
+            <header class="chat-header">
+                <button class="menu-toggle" onclick="toggleSidebar()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
+                <div class="header-title">
+                    <span class="kitty-icon">🎀</span>
+                    <h1>Hello Kitty</h1>
+                </div>
+                <div class="header-actions">
+                    <button class="wake-word-btn" id="wakeWordBtn" onclick="toggleWakeWordMode()" title="Enable wake word - Say 'Hello Kitty' to activate">
+                        <div class="wake-indicator"></div>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                            <line x1="12" y1="19" x2="12" y2="23"></line>
+                            <line x1="8" y1="23" x2="16" y2="23"></line>
+                        </svg>
+                        <span>Say "Hello Kitty"</span>
+                    </button>
+                    <button class="voice-chat-btn" onclick="enterVoiceMode()" title="Start voice conversation">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                            <line x1="12" y1="19" x2="12" y2="23"></line>
+                            <line x1="8" y1="23" x2="16" y2="23"></line>
+                        </svg>
+                        <span>Voice Chat</span>
+                    </button>
+                    <button class="icon-btn" onclick="toggleTheme()" title="Toggle theme">
+                        <svg id="themeIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="5"></circle>
+                            <line x1="12" y1="1" x2="12" y2="3"></line>
+                            <line x1="12" y1="21" x2="12" y2="23"></line>
+                            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                            <line x1="1" y1="12" x2="3" y2="12"></line>
+                            <line x1="21" y1="12" x2="23" y2="12"></line>
+                            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                        </svg>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Chat Messages -->
+            <div class="chat-messages" id="chatMessages">
+                <!-- Welcome Message -->
+                <div class="welcome-screen" id="welcomeScreen">
+                    <div class="welcome-icon">🎀</div>
+                    <h2>Hello! I'm Hello Kitty</h2>
+                    <p>Your friendly AI assistant. How can I help you today?</p>
+                    <div class="quick-prompts">
+                        <button class="quick-prompt" onclick="sendQuickPrompt('What is the weather today?')">
+                            <span class="prompt-icon">🌤️</span>
+                            <span>Check Weather</span>
+                        </button>
+                        <button class="quick-prompt" onclick="sendQuickPrompt('What time is it?')">
+                            <span class="prompt-icon">🕐</span>
+                            <span>Current Time</span>
+                        </button>
+                        <button class="quick-prompt" onclick="sendQuickPrompt('Tell me a joke')">
+                            <span class="prompt-icon">😄</span>
+                            <span>Tell a Joke</span>
+                        </button>
+                        <button class="quick-prompt" onclick="sendQuickPrompt('What can you do?')">
+                            <span class="prompt-icon">✨</span>
+                            <span>What can you do?</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Input -->
+            <div class="chat-input-container">
+                <div class="chat-input-wrapper">
+                    <button class="mic-btn" id="micBtn" onclick="toggleVoiceInput()" title="Voice input">
+                        <svg id="micIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                            <line x1="12" y1="19" x2="12" y2="23"></line>
+                            <line x1="8" y1="23" x2="16" y2="23"></line>
+                        </svg>
+                    </button>
+                    <textarea
+                        id="messageInput"
+                        placeholder="Message Hello Kitty..."
+                        rows="1"
+                        onkeydown="handleKeyDown(event)"
+                        oninput="autoResize(this)"
+                    ></textarea>
+                    <button class="voice-toggle-btn" id="voiceToggleBtn" onclick="toggleVoiceOutput()" title="Toggle voice responses">
+                        <svg id="speakerIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+                            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                        </svg>
+                    </button>
+                    <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="22" y1="2" x2="11" y2="13"></line>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                        </svg>
+                    </button>
+                </div>
+                <div class="voice-status" id="voiceStatus"></div>
+                <div class="wake-word-status" id="wakeWordStatus"></div>
+                <p class="disclaimer">Click "Say Hello Kitty" button, then just say "Hello Kitty" to talk - just like in terminal!</p>
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+</body>
+</html>
