@@ -11,6 +11,10 @@ let voiceOutputEnabled = true;
 let recognition = null;
 let synthesis = window.speechSynthesis;
 
+// Chat Sessions State
+let allSessions = [];  // Array of all conversation sessions
+let currentSessionId = null;  // Current active session ID
+
 // Voice Mode State
 let voiceModeActive = false;
 let voiceModeListening = false;
@@ -42,7 +46,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize speech recognition
     initSpeechRecognition();
 
-    // Load chat history from localStorage
+    // Load all sessions and chat history from localStorage
+    loadAllSessions();
     loadChatHistory();
 
     // Focus input
@@ -460,45 +465,30 @@ function sendQuickPrompt(prompt) {
     sendMessage();
 }
 
-// Reset Conversation
+// Reset Conversation - Creates a new chat session
 async function resetConversation() {
     try {
         // Stop any ongoing speech
         synthesis.cancel();
 
+        // Save current session if it has messages
+        saveCurrentSession();
+
+        // Create a new session
+        const newSession = createNewSession();
+        allSessions.unshift(newSession);  // Add to beginning
+        currentSessionId = newSession.id;
+        chatHistory = [];
+
+        // Save and update sidebar
+        saveAllSessions();
+        renderSessionsSidebar();
+
+        // Reset server conversation
         await fetch('/api/reset', { method: 'POST' });
 
-        // Clear UI
-        chatMessages.innerHTML = '';
-        chatHistory = [];
-        saveChatHistory();
-
         // Show welcome screen
-        chatMessages.innerHTML = `
-            <div class="welcome-screen" id="welcomeScreen">
-                <div class="welcome-icon">🎀</div>
-                <h2>Hello! I'm Hello Kitty</h2>
-                <p>Your friendly AI assistant. How can I help you today?</p>
-                <div class="quick-prompts">
-                    <button class="quick-prompt" onclick="sendQuickPrompt('What is the weather today?')">
-                        <span class="prompt-icon">🌤️</span>
-                        <span>Check Weather</span>
-                    </button>
-                    <button class="quick-prompt" onclick="sendQuickPrompt('What time is it?')">
-                        <span class="prompt-icon">🕐</span>
-                        <span>Current Time</span>
-                    </button>
-                    <button class="quick-prompt" onclick="sendQuickPrompt('Tell me a joke')">
-                        <span class="prompt-icon">😄</span>
-                        <span>Tell a Joke</span>
-                    </button>
-                    <button class="quick-prompt" onclick="sendQuickPrompt('What can you do?')">
-                        <span class="prompt-icon">✨</span>
-                        <span>What can you do?</span>
-                    </button>
-                </div>
-            </div>
-        `;
+        showWelcomeScreen();
 
         messageInput.focus();
     } catch (error) {
@@ -544,10 +534,318 @@ function updateThemeIcon(theme) {
     }
 }
 
-// Save Chat History to localStorage
+// ==========================================
+// CHAT SESSIONS MANAGEMENT
+// ==========================================
+
+// Generate unique session ID
+function generateSessionId() {
+    return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+}
+
+// Generate session title from first message
+function generateSessionTitle(messages) {
+    if (messages.length === 0) return 'New Chat';
+
+    const firstUserMsg = messages.find(m => m.role === 'user');
+    if (!firstUserMsg) return 'New Chat';
+
+    let title = firstUserMsg.content.substring(0, 30);
+    if (firstUserMsg.content.length > 30) title += '...';
+    return title;
+}
+
+// Create a new session
+function createNewSession() {
+    const session = {
+        id: generateSessionId(),
+        title: 'New Chat',
+        messages: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+    };
+    return session;
+}
+
+// Save all sessions to localStorage
+function saveAllSessions() {
+    try {
+        localStorage.setItem('chatSessions', JSON.stringify(allSessions));
+        localStorage.setItem('currentSessionId', currentSessionId);
+    } catch (e) {
+        console.error('Error saving sessions:', e);
+    }
+}
+
+// Load all sessions from localStorage
+function loadAllSessions() {
+    try {
+        const saved = localStorage.getItem('chatSessions');
+        const savedCurrentId = localStorage.getItem('currentSessionId');
+
+        if (saved) {
+            allSessions = JSON.parse(saved);
+        }
+
+        // If no sessions exist, create one
+        if (allSessions.length === 0) {
+            const newSession = createNewSession();
+            allSessions.push(newSession);
+            currentSessionId = newSession.id;
+        } else if (savedCurrentId && allSessions.find(s => s.id === savedCurrentId)) {
+            currentSessionId = savedCurrentId;
+        } else {
+            currentSessionId = allSessions[0].id;
+        }
+
+        // Render the sidebar
+        renderSessionsSidebar();
+
+    } catch (e) {
+        console.error('Error loading sessions:', e);
+        allSessions = [];
+        const newSession = createNewSession();
+        allSessions.push(newSession);
+        currentSessionId = newSession.id;
+    }
+}
+
+// Render sessions in sidebar
+function renderSessionsSidebar() {
+    const historyContainer = document.getElementById('chatHistory');
+    if (!historyContainer) return;
+
+    historyContainer.innerHTML = '';
+
+    // Sort sessions by updatedAt (most recent first)
+    const sortedSessions = [...allSessions].sort((a, b) =>
+        new Date(b.updatedAt) - new Date(a.updatedAt)
+    );
+
+    // Group by date
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const lastWeek = new Date(today);
+    lastWeek.setDate(lastWeek.getDate() - 7);
+
+    const groups = {
+        today: [],
+        yesterday: [],
+        lastWeek: [],
+        older: []
+    };
+
+    sortedSessions.forEach(session => {
+        const sessionDate = new Date(session.updatedAt);
+        if (sessionDate.toDateString() === today.toDateString()) {
+            groups.today.push(session);
+        } else if (sessionDate.toDateString() === yesterday.toDateString()) {
+            groups.yesterday.push(session);
+        } else if (sessionDate > lastWeek) {
+            groups.lastWeek.push(session);
+        } else {
+            groups.older.push(session);
+        }
+    });
+
+    // Render groups
+    if (groups.today.length > 0) {
+        historyContainer.appendChild(createGroupHeader('Today'));
+        groups.today.forEach(s => historyContainer.appendChild(createSessionItem(s)));
+    }
+    if (groups.yesterday.length > 0) {
+        historyContainer.appendChild(createGroupHeader('Yesterday'));
+        groups.yesterday.forEach(s => historyContainer.appendChild(createSessionItem(s)));
+    }
+    if (groups.lastWeek.length > 0) {
+        historyContainer.appendChild(createGroupHeader('Previous 7 Days'));
+        groups.lastWeek.forEach(s => historyContainer.appendChild(createSessionItem(s)));
+    }
+    if (groups.older.length > 0) {
+        historyContainer.appendChild(createGroupHeader('Older'));
+        groups.older.forEach(s => historyContainer.appendChild(createSessionItem(s)));
+    }
+}
+
+// Create group header element
+function createGroupHeader(text) {
+    const header = document.createElement('div');
+    header.className = 'history-group-header';
+    header.textContent = text;
+    return header;
+}
+
+// Create session item element
+function createSessionItem(session) {
+    const item = document.createElement('div');
+    item.className = 'history-item' + (session.id === currentSessionId ? ' active' : '');
+    item.dataset.sessionId = session.id;
+
+    item.innerHTML = `
+        <span class="history-item-title">${escapeHtml(session.title)}</span>
+        <button class="history-item-delete" onclick="deleteSession('${session.id}', event)" title="Delete chat">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 6h18"></path>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+        </button>
+    `;
+
+    item.addEventListener('click', (e) => {
+        if (!e.target.closest('.history-item-delete')) {
+            switchToSession(session.id);
+        }
+    });
+
+    return item;
+}
+
+// Escape HTML to prevent XSS
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Switch to a different session
+function switchToSession(sessionId) {
+    // Save current session first
+    saveCurrentSession();
+
+    // Find the session
+    const session = allSessions.find(s => s.id === sessionId);
+    if (!session) return;
+
+    currentSessionId = sessionId;
+    chatHistory = [...session.messages];
+
+    // Clear and render messages
+    chatMessages.innerHTML = '';
+
+    if (chatHistory.length === 0) {
+        // Show welcome screen
+        showWelcomeScreen();
+    } else {
+        chatHistory.forEach(msg => {
+            addMessage(msg.role, msg.content);
+        });
+    }
+
+    // Update sidebar
+    renderSessionsSidebar();
+    saveAllSessions();
+
+    // Reset server conversation
+    fetch('/api/reset', { method: 'POST' });
+}
+
+// Save current session
+function saveCurrentSession() {
+    if (!currentSessionId) return;
+
+    const session = allSessions.find(s => s.id === currentSessionId);
+    if (session) {
+        session.messages = [...chatHistory];
+        session.title = generateSessionTitle(chatHistory);
+        session.updatedAt = new Date().toISOString();
+        saveAllSessions();
+    }
+}
+
+// Delete a session
+function deleteSession(sessionId, event) {
+    event.stopPropagation();
+
+    // Don't delete if it's the only session
+    if (allSessions.length === 1) {
+        // Just clear the session instead
+        const session = allSessions[0];
+        session.messages = [];
+        session.title = 'New Chat';
+        session.updatedAt = new Date().toISOString();
+        chatHistory = [];
+        chatMessages.innerHTML = '';
+        showWelcomeScreen();
+        renderSessionsSidebar();
+        saveAllSessions();
+        fetch('/api/reset', { method: 'POST' });
+        return;
+    }
+
+    // Remove the session
+    const index = allSessions.findIndex(s => s.id === sessionId);
+    if (index !== -1) {
+        allSessions.splice(index, 1);
+
+        // If deleted current session, switch to most recent
+        if (sessionId === currentSessionId) {
+            const mostRecent = allSessions.sort((a, b) =>
+                new Date(b.updatedAt) - new Date(a.updatedAt)
+            )[0];
+            currentSessionId = mostRecent.id;
+            chatHistory = [...mostRecent.messages];
+            chatMessages.innerHTML = '';
+            if (chatHistory.length === 0) {
+                showWelcomeScreen();
+            } else {
+                chatHistory.forEach(msg => addMessage(msg.role, msg.content));
+            }
+        }
+
+        renderSessionsSidebar();
+        saveAllSessions();
+    }
+}
+
+// Show welcome screen
+function showWelcomeScreen() {
+    chatMessages.innerHTML = `
+        <div class="welcome-screen" id="welcomeScreen">
+            <div class="welcome-icon">🎀</div>
+            <h2>Hello! I'm Hello Kitty</h2>
+            <p>Your friendly AI assistant. How can I help you today?</p>
+            <div class="quick-prompts">
+                <button class="quick-prompt" onclick="sendQuickPrompt('What is the weather today?')">
+                    <span class="prompt-icon">🌤️</span>
+                    <span>Check Weather</span>
+                </button>
+                <button class="quick-prompt" onclick="sendQuickPrompt('What time is it?')">
+                    <span class="prompt-icon">🕐</span>
+                    <span>Current Time</span>
+                </button>
+                <button class="quick-prompt" onclick="sendQuickPrompt('Tell me a joke')">
+                    <span class="prompt-icon">😄</span>
+                    <span>Tell a Joke</span>
+                </button>
+                <button class="quick-prompt" onclick="sendQuickPrompt('What can you do?')">
+                    <span class="prompt-icon">✨</span>
+                    <span>What can you do?</span>
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+// Save Chat History to localStorage (also saves session)
 function saveChatHistory() {
     try {
-        localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
+        // Update current session
+        if (currentSessionId) {
+            const session = allSessions.find(s => s.id === currentSessionId);
+            if (session) {
+                session.messages = [...chatHistory];
+                session.title = generateSessionTitle(chatHistory);
+                session.updatedAt = new Date().toISOString();
+            }
+        }
+
+        // Save all sessions
+        saveAllSessions();
+
+        // Also render sidebar to update titles
+        renderSessionsSidebar();
+
     } catch (e) {
         console.error('Error saving chat history:', e);
     }
@@ -556,11 +854,14 @@ function saveChatHistory() {
 // Load Chat History from localStorage
 function loadChatHistory() {
     try {
-        const saved = localStorage.getItem('chatHistory');
-        if (saved) {
-            chatHistory = JSON.parse(saved);
-            if (chatHistory.length > 0) {
+        // Load from current session
+        if (currentSessionId) {
+            const session = allSessions.find(s => s.id === currentSessionId);
+            if (session && session.messages.length > 0) {
+                chatHistory = [...session.messages];
+
                 // Hide welcome screen
+                const welcomeScreen = document.getElementById('welcomeScreen');
                 if (welcomeScreen) {
                     welcomeScreen.style.display = 'none';
                 }
